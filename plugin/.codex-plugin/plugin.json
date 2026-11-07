@@ -1,0 +1,21 @@
+{
+  "apps": "./.app.json",
+  "author": {
+    "name": "App developer"
+  },
+  "description": "Private stateless memory tools for ChatGPT and Codex, backed exclusively by OpenAI Files, Vector Stores and Responses.",
+  "interface": {
+    "capabilities": [],
+    "category": "Other",
+    "defaultPrompt": null,
+    "developerName": "App developer",
+    "displayName": "Agent Memory MCP",
+    "longDescription": "Private stateless memory tools for ChatGPT and Codex, backed exclusively by OpenAI Files, Vector Stores and Responses.",
+    "shortDescription": "Private stateless memory tools for ChatGPT and Codex, backed exclusively by OpenAI Files, Vector Stores and Responses.",
+    "websiteURL": "https://agent-memory-mcp.watee-krs.chatgpt.site",
+    "logo": "./assets/icon.svg",
+    "composerIcon": "./assets/icon.svg"
+  },
+  "name": "dev-9afa25a994c08191ba5de448bcfebffd",
+  "version": "1.0.1"
+}

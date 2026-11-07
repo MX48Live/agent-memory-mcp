@@ -47,6 +47,8 @@ Production secrets belong in Sites environment settings, not source or the hosti
 
 Tools advertise human-readable MCP titles such as **Memory Query** and a shared database icon, while retaining stable callable names such as `memory_query`. Displaying these titles and icons depends on client support; clients may keep their own generic tool indicator. The icon is an inline SVG data URI, requiring no asset request.
 
+Plugin listing artwork is declared separately in `plugin/.codex-plugin/plugin.json` through `interface.logo` and `interface.composerIcon`. The package retains the existing registered app mapping in `plugin/.app.json`. ZIP the contents of `plugin/` and use the existing plugin’s **Upload new version** action to upload the package; refreshing MCP tools does not set these listing assets. ChatGPT accepted version 1.0.1, but the Sites-generated plugin continued to display its generic icon after reloading. The main listing icon change remains unverified.
+
 Create `global` and each application's project before use. These are application projects, not separate OpenAI API projects. Requests use stateless JSON-RPC `POST /mcp`, including Sites `server/discover`, `tools/list`, and `tools/call`. Standard initialization, ping, and notifications are also handled. Mutation tools are honestly annotated as not strictly idempotent.
 
 ### When clients call tools
