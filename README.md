@@ -10,9 +10,12 @@ Requires Node 24+. No packages need installing.
 npm test
 npm run build
 npm run smoke
+npm run evaluate
 ```
 
 The smoke check uses the ignored `.env.local`, creates a disposable namespace with synthetic knowledge, verifies write/retry/read/query, and deletes only that namespace's resources. It calls OpenAI and incurs API usage. Unit tests use an in-memory fake exclusively.
+
+The evaluation command checks Sol on no-op, duplicate, contradictory, and explicitly corrected knowledge, plus Luna on a cited answer. It calls the real models with synthetic inputs but replaces storage with in-memory evaluation fixtures; it creates no durable memory records. Passing this small sample is a baseline, not a guarantee of model accuracy.
 
 For local development, configure `MEMORY_LOCAL_TOKEN` in your ignored env file and run `npm run dev`. The server binds only to `127.0.0.1:8787`; send its token as a Bearer credential. Production relies on authenticated caller identity supplied by the owner-private Sites gateway. Never expose the Worker independently while trusting arbitrary identity headers.
 
