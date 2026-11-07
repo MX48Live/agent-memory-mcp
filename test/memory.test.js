@@ -180,6 +180,13 @@ test('API errors redact upstream response bodies', async () => {
   const api = new OpenAI({ OPENAI_API_KEY: 'never-echo-this' }, async () => new Response('sensitive upstream content', { status: 401 }));
   await assert.rejects(api.list('/files'), error => error.code === 'upstream_error' && !error.message.includes('sensitive') && !error.message.includes('never-echo'));
 });
+test('native fetch is bound to the Worker global rather than the API instance', async () => {
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async function () {
+    assert.equal(this, globalThis);
+    return Response.json({ data: [], has_more: false });
+  });
+  assert.deepEqual(await api.list('/files'), []);
+});
 test('pagination follows all pages and rejects incomplete scans', async () => {
   let calls = 0;
   const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async () => Response.json(++calls === 1 ? { data: [{ id: 'one' }], has_more: true } : { data: [{ id: 'two' }], has_more: false }));

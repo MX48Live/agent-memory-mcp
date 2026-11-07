@@ -76,7 +76,7 @@ const rejectSecrets = value => {
 export class OpenAI {
   constructor(env, fetcher = fetch) {
     if (!env.OPENAI_API_KEY) fail('not_configured', 'OPENAI_API_KEY is not configured.');
-    this.env = env; this.fetcher = fetcher;
+    this.env = env; this.fetcher = fetcher.bind(globalThis);
   }
   async request(path, { method = 'GET', body, text = false } = {}) {
     const headers = { Authorization: `Bearer ${this.env.OPENAI_API_KEY}` };
@@ -85,7 +85,7 @@ export class OpenAI {
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     let response;
     try { response = await this.fetcher(API + path, { method, headers, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(45000) }); }
-    catch { fail('upstream_unavailable', 'OpenAI request could not complete. Retry using the same task/operation key.'); }
+    catch (error) { fail('upstream_unavailable', 'OpenAI request could not complete. Retry using the same task/operation key.', { transport_error: error?.name || 'Error' }); }
     if (!response.ok) fail(response.status === 429 ? 'rate_limited' : 'upstream_error', `OpenAI returned HTTP ${response.status}.`, { retry_after: response.headers.get('retry-after'), request_id: response.headers.get('x-request-id') });
     return text ? response.text() : response.json();
   }
