@@ -1,6 +1,6 @@
 # Client instructions for ChatGPT and Codex
 
-Use only after the hosted plugin has passed end-to-end validation. These are proposed replacement instructions, not an installer and not a change to the current local memory rules.
+Use after the hosted plugin has passed end-to-end validation. Codex personal instructions were switched to this workflow on 2026-11-07 after authenticated plugin listing/query checks. The two local-memory Python hook registrations and obsolete trust entries were removed; the retired memory hook, skill, and original configuration were archived under `~/.codex/backups/agent-memory-mcp-cutover-*`. Other hooks and personal style instructions were preserved. This does not change ChatGPT personal instructions automatically.
 
 ```text
 Use Agent Memory MCP for durable project knowledge and completed-task logs.
