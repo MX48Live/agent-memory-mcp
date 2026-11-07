@@ -81,3 +81,7 @@ Nothing continues after a pending response. Resume in a later call, including fr
 The `.openai/hosting.json` manifest declares only MCP hosting, with no storage bindings. `npm run build` emits `dist/server/index.js` plus `dist/.openai/hosting.json`. Publish with the Sites source workflow and retain owner-private access. Reuse the generated private plugin in ChatGPT/Codex; do not add a second MCP connection.
 
 See [client-instructions.md](docs/client-instructions.md) for replacing the old local-memory rules without Python scripts. Existing local instructions remain active until the hosted workflow is validated. Keep the old vault as an archive; no historical import or synchronization is performed.
+
+## Proposed Cloudflare migration
+
+The [migration plan and resource naming checklist](docs/migration-cloudflare.md) describe a proposed move to Cloudflare-owned Workers, R2 and AI Search while retaining OpenAI models. Resource names and connection choices are pending; the deployed storage/runtime configuration has not changed.
