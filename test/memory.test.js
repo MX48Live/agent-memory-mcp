@@ -179,6 +179,18 @@ test('RPC advertises instructions and tools without requiring an API key', async
   assert.match(payload.result.instructions, /On pending, resume once/);
   assert.deepEqual(payload.result.supportedVersions, ['2026-07-28']);
 });
+test('tools/list advertises readable titles with stable callable names', async () => {
+  const request = new Request('https://private.chatgpt.site/mcp', { method: 'POST', headers: { 'content-type': 'application/json', 'oai-authenticated-user-id': 'owner' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+  const response = await createWorker().fetch(request, {});
+  const { result } = await response.json();
+  assert.deepEqual(result.tools.map(({ name, title }) => [name, title]), [
+    ['memory_projects', 'Memory Projects'],
+    ['memory_query', 'Memory Query'],
+    ['memory_read', 'Memory Read'],
+    ['memory_complete', 'Memory Complete'],
+    ['memory_status', 'Memory Status'],
+  ]);
+});
 test('API errors redact upstream response bodies', async () => {
   const api = new OpenAI({ OPENAI_API_KEY: 'never-echo-this' }, async () => new Response('sensitive upstream content', { status: 401 }));
   await assert.rejects(api.list('/files'), error => error.code === 'upstream_error' && !error.message.includes('sensitive') && !error.message.includes('never-echo'));
