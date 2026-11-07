@@ -173,7 +173,10 @@ test('RPC rejects invalid tool arguments without calling OpenAI', async () => {
 test('RPC advertises instructions and tools without requiring an API key', async () => {
   const request = new Request('https://private.chatgpt.site/mcp', { method: 'POST', headers: { 'content-type': 'application/json', 'oai-authenticated-user-id': 'owner' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'server/discover' }) });
   const result = await createWorker().fetch(request, {}); const payload = await result.json();
-  assert.match(payload.result.instructions, /memory_complete/);
+  assert.match(payload.result.instructions, /memory_complete once, not per prompt/);
+  assert.match(payload.result.instructions, /List projects only when the key is unknown or invalid/);
+  assert.match(payload.result.instructions, /Continue independent work if retrieval fails/);
+  assert.match(payload.result.instructions, /On pending, resume once/);
   assert.deepEqual(payload.result.supportedVersions, ['2026-07-28']);
 });
 test('API errors redact upstream response bodies', async () => {

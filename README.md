@@ -47,6 +47,18 @@ Production secrets belong in Sites environment settings, not source or the hosti
 
 Create `global` and each application's project before use. These are application projects, not separate OpenAI API projects. Requests use stateless JSON-RPC `POST /mcp`, including Sites `server/discover`, `tools/list`, and `tools/call`. Standard initialization, ping, and notifications are also handled. Mutation tools are honestly annotated as not strictly idempotent.
 
+### When clients call tools
+
+Reuse known project keys and relevant memory within a chat. List projects only
+when the key is unknown or invalid; query project plus global knowledge only
+when missing or potentially stale prior context matters. Simple follow-ups and
+self-contained tasks skip retrieval. Continue independent work on retrieval
+failure. Submit one completion log per finished task, not per prompt. After
+pending, attempt one resume, then report the operation ID and defer further
+attempts until needed or requested. Nothing runs in the background. Individual
+tool calls still wait for their results; save verification remains strict.
+See [client-instructions.md](docs/client-instructions.md) for the full policy.
+
 ### Example completion
 
 ```json
