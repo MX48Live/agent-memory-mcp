@@ -1,0 +1,13 @@
+import { mkdir, copyFile, readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('dist/server', { recursive: true });
+await mkdir('dist/.openai', { recursive: true });
+await copyFile('worker/index.js', 'dist/server/index.js');
+await copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+const manifest = JSON.parse(await readFile('dist/.openai/hosting.json', 'utf8'));
+assert(manifest.capabilities.includes('mcp'));
+assert.equal(manifest.d1, null);
+assert.equal(manifest.r2, null);
+const worker = await import('../dist/server/index.js');
+assert.equal(typeof worker.default.fetch, 'function');
+console.log('Built and verified dependency-free Worker ESM.');
