@@ -45,7 +45,7 @@ Production secrets belong in Sites environment settings, not source or the hosti
 | `memory_complete` | `project_key`, `task_key`, `summary`, `sources`, `validation`, `duration`, `caveats`; optional candidate `knowledge` and explicit `corrections` |
 | `memory_status` | `project_key`, `operation_id`, optional `resume: true` |
 
-Tools advertise human-readable MCP titles such as **Memory Query**, while retaining stable callable names such as `memory_query`. Displaying these titles depends on client support.
+Tools advertise human-readable MCP titles such as **Memory Query** and a shared database icon, while retaining stable callable names such as `memory_query`. Displaying these titles and icons depends on client support; clients may keep their own generic tool indicator. The icon is an inline SVG data URI, requiring no asset request.
 
 Create `global` and each application's project before use. These are application projects, not separate OpenAI API projects. Requests use stateless JSON-RPC `POST /mcp`, including Sites `server/discover`, `tools/list`, and `tools/call`. Standard initialization, ping, and notifications are also handled. Mutation tools are honestly annotated as not strictly idempotent.
 

@@ -179,7 +179,7 @@ test('RPC advertises instructions and tools without requiring an API key', async
   assert.match(payload.result.instructions, /On pending, resume once/);
   assert.deepEqual(payload.result.supportedVersions, ['2026-07-28']);
 });
-test('tools/list advertises readable titles with stable callable names', async () => {
+test('tools/list advertises readable titles and database icons with stable callable names', async () => {
   const request = new Request('https://private.chatgpt.site/mcp', { method: 'POST', headers: { 'content-type': 'application/json', 'oai-authenticated-user-id': 'owner' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
   const response = await createWorker().fetch(request, {});
   const { result } = await response.json();
@@ -190,6 +190,12 @@ test('tools/list advertises readable titles with stable callable names', async (
     ['memory_complete', 'Memory Complete'],
     ['memory_status', 'Memory Status'],
   ]);
+  const [icon] = result.tools[0].icons;
+  assert.equal(icon.mimeType, 'image/svg+xml');
+  assert.deepEqual(icon.sizes, ['any']);
+  assert.match(icon.src, /^data:image\/svg\+xml;base64,/);
+  assert.match(Buffer.from(icon.src.split(',')[1], 'base64').toString(), /<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+  for (const tool of result.tools) assert.deepEqual(tool.icons, [icon]);
 });
 test('API errors redact upstream response bodies', async () => {
   const api = new OpenAI({ OPENAI_API_KEY: 'never-echo-this' }, async () => new Response('sensitive upstream content', { status: 401 }));
