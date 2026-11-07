@@ -1,6 +1,8 @@
-# Cloudflare migration plan
+# Cloudflare migration proposal (withdrawn)
 
-Status: proposed; awaiting the user's resource naming, account, endpoint and sign-in choices. This document authorizes no resource creation or live cutover. The deployed OpenAI-backed service remains active until the migration is implemented, verified and switched over.
+Status: withdrawn on 2026-11-07. After considering managed AI Search and then R2/Vectorize with custom hybrid retrieval, the user chose to keep the existing OpenAI ecosystem to avoid additional infrastructure and search-maintenance complexity. Retain OpenAI Files, Vector Stores and Responses, the existing Sites-hosted stateless MCP, and the current private plugin connection. No Cloudflare migration, new endpoint, custom BM25 index, or separate reranking pipeline is planned.
+
+The sections below preserve the earlier managed AI Search proposal as historical reference only. They are not current instructions or authorization to provision resources, migrate data, or switch clients. Later discussion selected `agent-memory` resource names, `memory.11mm.dev`, and GitHub sign-in for a possible direct Vectorize rewrite; those choices are also inactive following withdrawal. No Cloudflare resources were created as part of preparing this proposal.
 
 ## Target and defaults
 

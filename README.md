@@ -82,6 +82,6 @@ The `.openai/hosting.json` manifest declares only MCP hosting, with no storage b
 
 See [client-instructions.md](docs/client-instructions.md) for replacing the old local-memory rules without Python scripts. Existing local instructions remain active until the hosted workflow is validated. Keep the old vault as an archive; no historical import or synchronization is performed.
 
-## Proposed Cloudflare migration
+## Withdrawn Cloudflare migration
 
-The [migration plan and resource naming checklist](docs/migration-cloudflare.md) describe a proposed move to Cloudflare-owned Workers, R2 and AI Search while retaining OpenAI models. Resource names and connection choices are pending; the deployed storage/runtime configuration has not changed.
+The [Cloudflare migration proposal](docs/migration-cloudflare.md) is withdrawn. On 2026-11-07, the user chose to retain OpenAI Files, Vector Stores and Responses with the existing Sites-hosted MCP, avoiding custom keyword indexing and retrieval infrastructure. The proposal is historical reference only; no migration or deployment is required.
