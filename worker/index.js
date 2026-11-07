@@ -52,6 +52,19 @@ export async function digest(value) {
   const bytes = new TextEncoder().encode(typeof value === 'string' ? value : canonical(value));
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), v => v.toString(16).padStart(2, '0')).join('');
 }
+export async function packSource(content, readable = content) {
+  const encoded = btoa(Array.from(new TextEncoder().encode(content), v => String.fromCharCode(v)).join(''));
+  return `${readable}\n\n## Recoverable source\n\nAGENT_MEMORY_SOURCE_V1\n${encoded}\nEND_AGENT_MEMORY_SOURCE\nSHA256 ${await digest(content)}\n`;
+}
+export async function unpackSource(parsed) {
+  const match = /AGENT_MEMORY_SOURCE_V1\s+([A-Za-z0-9+/=\s]+?)\s+END_AGENT_MEMORY_SOURCE\s+SHA256\s+([a-f0-9]{64})/.exec(parsed);
+  if (!match) fail('invalid_document', 'Parsed file content is missing its recoverable source.');
+  let content;
+  try { content = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(match[1].replace(/\s/g, '')), v => v.charCodeAt(0))); }
+  catch { fail('invalid_document', 'Recoverable source encoding is invalid.'); }
+  if (await digest(content) !== match[2]) fail('invalid_document', 'Recoverable source checksum does not match.');
+  return content;
+}
 const component = value => encodeURIComponent(value);
 const slug = value => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'memory';
 const unique = values => [...new Set(values)].sort();
@@ -91,10 +104,15 @@ export class OpenAI {
   }
   async upload(filename, content, purpose = 'assistants') {
     const form = new FormData(); form.set('purpose', purpose);
-    form.set('file', new File([content], filename, { type: filename.endsWith('.json') ? 'application/json' : 'text/markdown' }));
+    const packed = await packSource(content, filename.endsWith('.plan.md') ? '# Operation recovery plan' : content);
+    form.set('file', new File([packed], filename, { type: 'text/markdown' }));
     return this.request('/files', { method: 'POST', body: form });
   }
-  content(id) { return this.request(`/files/${component(id)}/content`, { text: true }); }
+  async content(id, storeId) {
+    const page = await this.request(`/vector_stores/${component(storeId)}/files/${component(id)}/content`);
+    if (page.has_more) fail('content_incomplete', 'Parsed file content spans more than one page; no exact source was returned. Reduce the task size.');
+    return unpackSource((page.data ?? []).map(v => v.text || '').join('\n'));
+  }
   async generate(kind, instructions, input, schema) {
     const isWrite = kind === 'write';
     const response = await this.request('/responses', { method: 'POST', body: {
@@ -147,31 +165,40 @@ export class Memory {
   }
   async memory_projects(args) {
     let stores = await this.projects();
+    let created;
     if (args.action === 'create') {
       if (!args.project_key) fail('invalid_input', 'project_key is required to create a collection.');
       if (!stores.some(v => v.metadata.project_key === args.project_key)) {
-        await this.api.request('/vector_stores', { method: 'POST', body: { name: `memory-${args.project_key}`, metadata: { memory_app: APP, memory_namespace: this.namespace, project_key: args.project_key, schema_version: '1' } } });
+        created = await this.api.request('/vector_stores', { method: 'POST', body: { name: `memory-${args.project_key}`, metadata: { memory_app: APP, memory_namespace: this.namespace, project_key: args.project_key, schema_version: '1' } } });
         stores = await this.projects();
       }
     }
-    return { projects: stores.map(v => ({ project_key: v.metadata.project_key, vector_store_id: v.id, name: v.name })) };
+    return { status: created && !stores.some(v => v.id === created.id) ? 'pending' : 'ready', created_vector_store_id: created?.id ?? null, projects: stores.map(v => ({ project_key: v.metadata.project_key, vector_store_id: v.id, name: v.name })) };
   }
   async files() { return (await this.api.list('/files')).filter(f => f.filename?.startsWith(this.prefix)); }
   filename(key, kind, suffix) { return `${this.prefix}${key}--${kind}--${suffix}`; }
   async exactFile(filename, expectedContent) {
     const matches = (await this.files()).filter(f => f.filename === filename);
     if (!matches.length) return null;
-    const contents = await Promise.all(matches.map(f => this.api.content(f.id)));
+    const key = filename.slice(this.prefix.length).split('--')[0];
+    const store = await this.store(key);
+    let attributes;
+    if (filename.endsWith('.plan.md')) attributes = { namespace: this.namespace, project_key: key, record_type: 'operation', operation_id: filename.match(/--([a-f0-9]{64})\.plan\.md$/)?.[1] };
+    else {
+      const meta = parseDocument(expectedContent).metadata;
+      attributes = { namespace: this.namespace, project_key: key, record_type: meta.record_type, operation_id: meta.operation_id, ...(meta.record_type === 'knowledge' ? { memory_id: meta.memory_id, revision_id: meta.revision_id } : {}) };
+    }
+    for (const file of matches) if (!await this.attach(store, file, attributes)) return { file, pending: true };
+    const contents = await Promise.all(matches.map(f => this.api.content(f.id, store.id)));
     if (new Set(contents).size > 1 || (expectedContent !== undefined && contents.some(c => c !== expectedContent))) fail('operation_conflict', 'Concurrent saves produced incompatible records. No winner was selected.');
     return { file: matches.sort((a, b) => a.id.localeCompare(b.id))[0], content: contents[0] };
   }
   async put(filename, content, purpose) {
     const existing = await this.exactFile(filename, content);
     if (existing) return existing.file;
-    await this.api.upload(filename, content, purpose);
+    const uploaded = await this.api.upload(filename, content, purpose);
     const saved = await this.exactFile(filename, content);
-    if (!saved) fail('pending', 'Uploaded file is not visible in the listing yet. Retry this operation.');
-    return saved.file;
+    return saved?.file ?? uploaded;
   }
   async attach(store, file, attributes) {
     const files = await this.api.list(`/vector_stores/${component(store.id)}/files`);
@@ -180,10 +207,11 @@ export class Memory {
     if (attached.status === 'failed' || attached.status === 'cancelled') fail('index_failed', 'File indexing failed; the operation has not been committed.', { file_id: file.id });
     return attached.status === 'completed';
   }
-  planName(key, operation) { return this.filename(key, 'operation', `${operation}.plan.json`); }
+  planName(key, operation) { return this.filename(key, 'operation', `${operation}.plan.md`); }
   async loadPlan(key, operation) {
     const stored = await this.exactFile(this.planName(key, operation));
     if (!stored) return null;
+    if (stored.pending) return { pending: true, project_key: key, operation_id: operation };
     let plan;
     try { plan = JSON.parse(stored.content); } catch { fail('invalid_document', 'Stored operation plan is malformed.'); }
     if (plan.operation_id !== operation || plan.project_key !== key || plan.namespace !== this.namespace) fail('invalid_document', 'Operation plan scope does not match.');
@@ -197,16 +225,16 @@ export class Memory {
     // shortcut: enumerate scoped metadata per request; add an OpenAI-supported index when personal collections outgrow this bounded scan.
     for (const log of ready.filter(v => v.attributes.record_type === 'log')) {
       const plan = await this.loadPlan(projectKey, log.attributes.operation_id);
-      if (!plan) continue;
+      if (!plan || plan.pending) continue;
       const expected = await this.logDocument(plan);
-      const text = await this.api.content(log.id);
+      const text = await this.api.content(log.id, store.id);
       if (text !== expected) fail('invalid_document', 'Completion log does not match its operation plan.');
       let complete = true; const docs = [];
       for (const doc of plan.documents) {
         const candidates = ready.filter(v => v.attributes.record_type === 'knowledge' && v.attributes.operation_id === plan.operation_id && v.attributes.revision_id === doc.revision_id);
         if (!candidates.length) { complete = false; break; }
         for (const file of candidates) {
-          if (await this.api.content(file.id) !== doc.text) fail('invalid_document', 'Knowledge document does not match its completed operation.');
+          if (await this.api.content(file.id, store.id) !== doc.text) fail('invalid_document', 'Knowledge document does not match its completed operation.');
         }
         docs.push({ ...doc, file_id: candidates.map(v => v.id).sort()[0], file_ids: candidates.map(v => v.id), project_key: projectKey });
       }
@@ -232,6 +260,7 @@ export class Memory {
     const requestHash = await digest(input);
     const store = await this.store(input.project_key);
     let plan = await this.loadPlan(input.project_key, operation);
+    if (plan?.pending) return { operation_id: operation, status: 'pending', retry: 'Call memory_status with resume=true.' };
     if (plan && plan.request_hash !== requestHash) fail('task_key_reused', 'This task key already belongs to a different payload.', { operation_id: operation });
     if (!plan) {
       const catalog = await this.catalogue(store);
@@ -259,14 +288,16 @@ export class Memory {
         documents.push({ ...meta, title: change.title, content: change.content, text, filename: this.filename(input.project_key, 'knowledge', `${slug(change.title)}--${change.memory_id}--${revisionId}.md`) });
       }
       plan = { schema_version: 1, namespace: this.namespace, project_key: input.project_key, operation_id: operation, request_hash: requestHash, created_at: new Date().toISOString(), input, documents };
-      await this.put(this.planName(input.project_key, operation), canonical(plan), 'user_data');
+      // Recovery plans are indexed with record_type=operation, never queried as knowledge.
+      await this.put(this.planName(input.project_key, operation), canonical(plan), 'assistants');
     }
     return this.resume(store, plan);
   }
   async resume(store, plan) {
     const confirmed = await this.loadPlan(plan.project_key, plan.operation_id);
-    if (!confirmed || canonical(confirmed) !== canonical(plan)) fail('operation_conflict', 'Operation plan changed; no winner was selected.');
     const pending = { operation_id: plan.operation_id, status: 'pending', retry: 'Call memory_status with resume=true using this operation_id.' };
+    if (!confirmed || confirmed.pending) return pending;
+    if (canonical(confirmed) !== canonical(plan)) fail('operation_conflict', 'Operation plan changed; no winner was selected.');
     // Each request performs one bounded indexing pass. Nothing runs after returning.
     for (const doc of plan.documents) {
       const file = await this.put(doc.filename, doc.text, 'assistants');
@@ -287,6 +318,7 @@ export class Memory {
     const store = await this.store(args.project_key);
     const plan = await this.loadPlan(args.project_key, args.operation_id);
     if (!plan) return { operation_id: args.operation_id, status: 'not_found' };
+    if (plan.pending) return { operation_id: args.operation_id, status: 'pending', retry: 'Call memory_status with resume=true.' };
     if (args.resume) return this.resume(store, plan);
     const catalog = await this.catalogue(store);
     const committed = catalog.plans.has(args.operation_id);
@@ -294,13 +326,14 @@ export class Memory {
     return { operation_id: args.operation_id, status: committed ? conflicts.length ? 'conflict' : 'saved' : 'pending', conflicts, log_created: committed };
   }
   async memory_read(args) {
-    const catalog = await this.catalogue(await this.store(args.project_key));
+    const store = await this.store(args.project_key);
+    const catalog = await this.catalogue(store);
     const doc = catalog.records.find(d => d.file_ids.includes(args.file_id));
     const log = catalog.logs.find(d => d.file_id === args.file_id);
     if (!doc && !log) fail('file_not_available', 'This file is not part of a verified completed operation in the requested project.');
     const current = doc ? catalog.current.filter(d => d.memory_id === doc.memory_id) : [];
     const status = !doc ? 'saved' : !current.some(r => r.revision_id === doc.revision_id) ? 'historical' : current.length > 1 || doc.conflict ? 'conflict' : 'current';
-    return { file_id: args.file_id, project_key: args.project_key, status, text: await this.api.content(args.file_id) };
+    return { file_id: args.file_id, project_key: args.project_key, status, text: await this.api.content(args.file_id, store.id) };
   }
   async memory_query(args) {
     const stores = await this.projects();
