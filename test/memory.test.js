@@ -603,6 +603,30 @@ test('API errors redact upstream response bodies', async () => {
   const api = new OpenAI({ OPENAI_API_KEY: 'never-echo-this' }, async () => new Response('sensitive upstream content', { status: 401 }));
   await assert.rejects(api.list('/files'), error => error.code === 'upstream_error' && !error.message.includes('sensitive') && !error.message.includes('never-echo'));
 });
+test('Sol synthesis has a bounded longer timeout while reads and Luna keep their deadline', async t => {
+  const deadlines = [];
+  t.mock.method(AbortSignal, 'timeout', milliseconds => {
+    deadlines.push(milliseconds);
+    return new AbortController().signal;
+  });
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async url => Response.json(url.endsWith('/responses')
+    ? { status: 'completed', output: [{ content: [{ type: 'output_text', text: '{}' }] }] }
+    : { data: [], has_more: false }));
+  const schema = { type: 'object', properties: {}, required: [], additionalProperties: false };
+  await api.list('/files');
+  await api.generate('write', 'Synthesize supplied evidence.', {}, schema);
+  await api.generate('query', 'Answer from supplied evidence.', {}, schema);
+  assert.deepEqual(deadlines, [45000, 180000, 45000]);
+});
+test('model transport timeouts remain explicit failures without automatic retries', async () => {
+  let calls = 0;
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async () => {
+    calls++;
+    throw new DOMException('Synthetic timeout', 'TimeoutError');
+  });
+  await assert.rejects(api.generate('write', 'Synthesize.', {}, {}), error => error.code === 'upstream_unavailable' && error.details.transport_error === 'TimeoutError');
+  assert.equal(calls, 1);
+});
 test('native fetch is bound to the Worker global rather than the API instance', async () => {
   const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async function () {
     assert.equal(this, globalThis);

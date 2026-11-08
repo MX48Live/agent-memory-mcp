@@ -62,7 +62,7 @@ self-contained tasks skip retrieval. Continue independent work on retrieval
 failure. Submit one completion log per finished task, not per prompt. After
 pending on an ordinary completion, attempt one resume, then report the operation ID and defer further
 attempts until needed or requested. Explicit maintenance jobs instead repeat their stable job key across advancing bounded batches; indexing/no-progress stalls receive one resume before deferral. Nothing runs in the background. Individual
-tool calls still wait for their results; save verification remains strict.
+tool calls still wait for their results; save verification remains strict. Sol requests have a bounded three-minute timeout for extraction and synthesis; routine Luna requests and storage calls retain a 45-second timeout. A timeout does not confirm a saved operation or start background recovery.
 See [client-instructions.md](docs/client-instructions.md) for the full policy.
 
 ### Example completion

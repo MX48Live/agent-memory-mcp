@@ -83,13 +83,13 @@ export class OpenAI {
     if (!env.OPENAI_API_KEY) fail('not_configured', 'OPENAI_API_KEY is not configured.');
     this.env = env; this.fetcher = fetcher.bind(globalThis);
   }
-  async request(path, { method = 'GET', body, text = false } = {}) {
+  async request(path, { method = 'GET', body, text = false, timeoutMs = 45000 } = {}) {
     const headers = { Authorization: `Bearer ${this.env.OPENAI_API_KEY}` };
     if (this.env.OPENAI_PROJECT_ID) headers['OpenAI-Project'] = this.env.OPENAI_PROJECT_ID;
     if (this.env.OPENAI_ORGANIZATION_ID) headers['OpenAI-Organization'] = this.env.OPENAI_ORGANIZATION_ID;
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     let response;
-    try { response = await this.fetcher(API + path, { method, headers, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(45000) }); }
+    try { response = await this.fetcher(API + path, { method, headers, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) }); }
     catch (error) { fail('upstream_unavailable', 'OpenAI request could not complete. Retry using the same task/operation key.', { transport_error: error?.name || 'Error' }); }
     if (!response.ok) fail(response.status === 429 ? 'rate_limited' : 'upstream_error', `OpenAI returned HTTP ${response.status}.`, { retry_after: response.headers.get('retry-after'), request_id: response.headers.get('x-request-id') });
     return text ? response.text() : response.json();
@@ -120,7 +120,7 @@ export class OpenAI {
   }
   async generate(kind, instructions, input, schema) {
     const isWrite = kind === 'write';
-    const response = await this.request('/responses', { method: 'POST', body: {
+    const response = await this.request('/responses', { method: 'POST', timeoutMs: isWrite ? 180000 : 45000, body: {
       model: isWrite ? this.env.MEMORY_WRITE_MODEL || 'gpt-6.1-sol' : this.env.MEMORY_QUERY_MODEL || 'gpt-6-luna',
       reasoning: { effort: isWrite ? this.env.MEMORY_WRITE_REASONING || 'medium' : this.env.MEMORY_QUERY_REASONING || 'low' },
       store: false, max_output_tokens: 16000, instructions,
