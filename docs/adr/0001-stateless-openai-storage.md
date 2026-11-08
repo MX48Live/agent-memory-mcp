@@ -1,5 +1,7 @@
 # Keep all durable memory on OpenAI
 
+The current-knowledge and correction-precedence policy below is superseded by [ADR 0003](0003-capture-first-and-daily-wiki-maintenance.md). The storage, immutable-history, and resumable-operation decisions remain active.
+
 Reaffirmed on 2026-11-07: the user withdrew the proposed Cloudflare storage/retrieval migration after reviewing its additional complexity. Keep this architecture and the existing Sites-hosted endpoint; do not introduce a custom BM25 index or separate reranking pipeline as part of that withdrawn proposal.
 
 Use a stateless Sites MCP Worker with OpenAI Files, Vector Stores, and Responses. The user explicitly rejected D1 and a separate catalogue to keep storage and processing on OpenAI. This means multi-file writes are not atomic, duplicate prevention is best effort, and concurrent corrections can produce visible conflicts. Sites supplies owner-private hosting on Cloudflare; it is not itself OpenAI storage.

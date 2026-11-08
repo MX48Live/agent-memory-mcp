@@ -4,15 +4,31 @@ Personal knowledge and task history shared across connected agents.
 
 ## Language
 
-**Memory**: Reusable knowledge about one coherent topic. A memory can have multiple revisions.
+**Capture**: An immutable collection of reusable assertions extracted from one curated task completion, with their sources and original recorded time.
 
-**Revision**: An immutable version of a memory that identifies the earlier revisions it explicitly replaces.
+**Assertion**: A statement about a scoped fact. A current assertion describes an established present state; historical assertions, plans, and uncertain claims have different meanings.
+
+**Scoped fact**: One property of a particular subject within a project and context, such as the backend runtime rather than its package manager.
+
+**Recorded time**: The time an assertion was first accepted into memory. It does not change when the assertion is retried, compiled, or migrated.
+
+**Wiki page**: A maintained synthesis of related knowledge, with references to the captures or legacy knowledge from which it was compiled.
+_Avoid_: Raw transcript, task log
+
+**Revision**: An immutable version of a memory document. Older revisions remain part of its history.
 
 **Task log**: A record of completed work, validation, duration, caveats, and resulting knowledge.
-_Avoid_: Raw transcript.
 
 **Project**: An application work context, such as XIRCLE. This differs from the OpenAI API project that owns all service resources.
 
-**Conflict**: Competing statements that have not been explicitly reconciled. A later timestamp does not settle a conflict.
+**Ambiguity**: An unresolved question about a statement's identity, meaning, or precedence. A newer current assertion replacing an older one is ordinary change, not by itself an ambiguity.
 
-**Operation**: One submission of completed work, identified by a stable task key and recoverable across retries.
+**Maintenance**: Compilation of captured knowledge into wiki pages and migration of hosted legacy knowledge, preserving original provenance and recorded times.
+
+**Audit**: A read-only inspection of memory integrity and coverage that returns findings and explicitly identifies incomplete inspection.
+
+**Source coverage**: The exact source records represented by a compiled wiki page.
+
+**Maintenance job**: The compilation of one project's frozen source scope, completed through one or more bounded batches under the same task key.
+
+**Operation**: A persisted unit of save or maintenance work, recoverable across retries.
