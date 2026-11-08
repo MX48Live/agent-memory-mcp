@@ -609,14 +609,48 @@ test('Sol synthesis has a bounded longer timeout while reads and Luna keep their
     deadlines.push(milliseconds);
     return new AbortController().signal;
   });
-  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async url => Response.json(url.endsWith('/responses')
-    ? { status: 'completed', output: [{ content: [{ type: 'output_text', text: '{}' }] }] }
-    : { data: [], has_more: false }));
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async (url, options) => {
+    const response = { status: 'completed', output: [{ content: [{ type: 'output_text', text: '{}' }] }] };
+    if (!url.endsWith('/responses')) return Response.json({ data: [], has_more: false });
+    const body = JSON.parse(options.body); assert.equal(body.store, false);
+    return body.stream ? new Response(`data: ${JSON.stringify({ type: 'response.completed', response })}\n\n`) : Response.json(response);
+  });
   const schema = { type: 'object', properties: {}, required: [], additionalProperties: false };
   await api.list('/files');
   await api.generate('write', 'Synthesize supplied evidence.', {}, schema);
   await api.generate('query', 'Answer from supplied evidence.', {}, schema);
   assert.deepEqual(deadlines, [45000, 180000, 45000]);
+});
+test('Sol accepts only the terminal structured result across split UTF-8 and CRLF stream frames', async () => {
+  const result = { status: 'completed', output: [{ content: [{ type: 'output_text', text: '{"answer":"ข้อมูลเดิม"}' }] }] };
+  const bytes = new TextEncoder().encode(`: keepalive\r\n\r\ndata: ${JSON.stringify({ type: 'response.output_text.delta', delta: 'partial' })}\r\n\r\ndata: ${JSON.stringify({ type: 'response.completed', response: result })}\r\n\r\n`);
+  let offset = 0; let cancelled = false;
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async () => new Response(new ReadableStream({
+    pull(controller) { controller.enqueue(bytes.slice(offset, offset + 2)); offset += 2; },
+    cancel() { cancelled = true; },
+  })));
+  const schema = { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'], additionalProperties: false };
+  assert.deepEqual(await api.generate('write', 'Synthesize.', {}, schema), { answer: 'ข้อมูลเดิม' });
+  assert(cancelled);
+});
+test('truncated, malformed, oversized and failed model streams never yield usable output', async () => {
+  for (const [text, code] of [
+    ['data: {"type":"response.output_text.done","text":"{}"}\n\n', 'model_incomplete'],
+    ['data: not-json\n\n', 'model_invalid'],
+    ['data: ' + 'x'.repeat(4 * 1024 * 1024 + 1), 'model_invalid'],
+    ['data: {"type":"error","message":"private upstream details"}\n\n', 'model_incomplete'],
+    ['data: {"type":"response.completed"}\n\n', 'model_invalid'],
+    ...['failed', 'incomplete'].map(status => [`data: ${JSON.stringify({ type: `response.${status}`, response: { status } })}\n\n`, 'model_incomplete']),
+  ]) {
+    const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async () => new Response(text));
+    await assert.rejects(api.generate('write', 'Synthesize.', {}, {}), error => error.code === code && !error.message.includes('private upstream'));
+  }
+});
+test('stream body interruptions preserve safe transport failures', async () => {
+  const api = new OpenAI({ OPENAI_API_KEY: 'test' }, async () => new Response(new ReadableStream({
+    start(controller) { controller.error(new TypeError('private upstream details')); },
+  })));
+  await assert.rejects(api.generate('write', 'Synthesize.', {}, {}), error => error.code === 'upstream_unavailable' && error.details.transport_error === 'TypeError' && !error.message.includes('private upstream'));
 });
 test('model transport timeouts remain explicit failures without automatic retries', async () => {
   let calls = 0;

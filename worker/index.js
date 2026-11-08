@@ -92,7 +92,35 @@ export class OpenAI {
     try { response = await this.fetcher(API + path, { method, headers, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) }); }
     catch (error) { fail('upstream_unavailable', 'OpenAI request could not complete. Retry using the same task/operation key.', { transport_error: error?.name || 'Error' }); }
     if (!response.ok) fail(response.status === 429 ? 'rate_limited' : 'upstream_error', `OpenAI returned HTTP ${response.status}.`, { retry_after: response.headers.get('retry-after'), request_id: response.headers.get('x-request-id') });
+    if (path === '/responses' && body?.stream) return this.streamedResponse(response);
     return text ? response.text() : response.json();
+  }
+  async streamedResponse(response) {
+    if (!response.body) fail('model_incomplete', 'The model stream has no response body.');
+    const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        if (buffer.length > 4 * 1024 * 1024) fail('model_invalid', 'The model stream exceeded its bounded event size.');
+        let boundary;
+        while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+          const frame = buffer.slice(0, boundary.index); buffer = buffer.slice(boundary.index + boundary[0].length);
+          const data = frame.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+          if (!data || data === '[DONE]') continue;
+          let event; try { event = JSON.parse(data); } catch { fail('model_invalid', 'The model stream returned an invalid event.'); }
+          if (event?.type === 'error') fail('model_incomplete', 'The model stream reported a failure.');
+          if (['response.completed', 'response.incomplete', 'response.failed'].includes(event?.type)) {
+            if (!event.response || typeof event.response !== 'object') fail('model_invalid', 'The model stream has no terminal response.');
+            return event.response;
+          }
+        }
+        if (done) fail('model_incomplete', 'The model stream ended before its terminal response.');
+      }
+    } catch (error) {
+      if (error instanceof MemoryError) throw error;
+      fail('upstream_unavailable', 'The model stream was interrupted; no complete result was confirmed.', { transport_error: error?.name || 'Error' });
+    } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
   }
   async list(path, limit = MAX_ITEMS) {
     const result = []; const cursors = new Set(); let after;
@@ -123,7 +151,7 @@ export class OpenAI {
     const response = await this.request('/responses', { method: 'POST', timeoutMs: isWrite ? 180000 : 45000, body: {
       model: isWrite ? this.env.MEMORY_WRITE_MODEL || 'gpt-6.1-sol' : this.env.MEMORY_QUERY_MODEL || 'gpt-6-luna',
       reasoning: { effort: isWrite ? this.env.MEMORY_WRITE_REASONING || 'medium' : this.env.MEMORY_QUERY_REASONING || 'low' },
-      store: false, max_output_tokens: 16000, instructions,
+      store: false, stream: isWrite, max_output_tokens: 16000, instructions,
       input: JSON.stringify(input), text: { format: { type: 'json_schema', name: isWrite ? 'memory_changes' : 'memory_answer', strict: true, schema } },
     } });
     if (response.status !== 'completed') fail('model_incomplete', 'The model did not complete; no inferred changes were committed.');
