@@ -40,8 +40,8 @@ Production secrets belong in Sites environment settings, not source or the hosti
 | Tool | Input and behavior |
 | --- | --- |
 | `memory_projects` | `action: list/create`, optional `project_key`; create a named collection explicitly |
-| `memory_query` | `project_key`, `query`; maintained wiki plus fresh captures by default; explicit logs, all-project scope, or complex synthesis |
-| `memory_read` | `project_key`, `file_id`; verified exact Markdown and its availability/currentness information |
+| `memory_query` | `project_key`, `query`; maintained wiki plus fresh captures by default; optional `include_history: true` only for explicit history questions; explicit logs, all-project scope, or complex synthesis |
+| `memory_read` | `project_key`, `file_id`; verified exact Markdown; `status: saved` confirms availability while `currentness: not_evaluated` makes no freshness claim |
 | `memory_complete` | Curated task completion and candidate knowledge; Sol extracts from new input only, without scanning prior memory for duplicates or conflicts |
 | `memory_status` | `project_key`, `operation_id`, optional `resume: true` |
 | `memory_maintain` | `project_key`, stable `task_key`; compile at most 20 captures per batch with one Sol call; resume interrupted work and migrate hosted legacy knowledge |
@@ -87,6 +87,8 @@ Completion and maintenance return an `operation_id` and explicit save/coverage i
 The [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) pattern accumulates maintained topic summaries and connections rather than assembling raw facts again for every question. Here, task completion produces immutable captures quickly; daily maintenance compiles them into persisted wiki pages with exact source coverage. Reads use both wiki pages and fresh captures, so new information is available before the next daily run.
 
 For the same scoped fact, use the newest **recorded current assertion**. A later current statement that the backend uses Bun supersedes an older statement that the same backend uses Node. A plan to try Bun, a historical statement, or a statement about the package manager does not necessarily change the runtime. Preserve older assertions for history. Original recorded times survive retries, hosted legacy migration, and compilation; a freshly generated wiki page cannot make an old claim newer. Report ambiguous identity or ordering instead of choosing by retrieval rank. See [ADR 0003](docs/adr/0003-capture-first-and-daily-wiki-maintenance.md).
+
+Default queries include selected current facts and separately typed planned, historical, or question context when relevant; those contexts never override current state. Use `include_history: true` only when the user explicitly asks about history: this additionally supplies superseded formerly-current assertions, labelled historical. Exact `memory_read` verifies that a file was saved, not that its statements are still current; use `memory_query` to evaluate current state.
 
 An explicitly scheduled external ChatGPT/Dot caller is intended to run at **03:00 Asia/Bangkok**. A maintenance call automatically discovers/resumes the project's oldest unfinished job and returns its actual task key, even when called with a new daily key. Reuse that returned project/job key across bounded batches while coverage advances; do not create a new key per batch. Each new job freezes its source scope on its first call. Attempt one resume for indexing/no-progress stalls, then report/defer instead of polling indefinitely. After maintenance, follow read-only audit cursors; changed inventory requires a restart or an explicitly incomplete report. Healthy completed runs stay quiet; report ambiguity, incomplete coverage, and failure. The packaged skill describes this workflow but does not create or verify the schedule. Structural audit is deterministic; bounded model-assisted semantic review does not guarantee detection of every contradiction.
 

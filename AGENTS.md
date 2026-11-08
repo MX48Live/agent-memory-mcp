@@ -15,6 +15,7 @@ This project provides private memory tools for ChatGPT and Codex through a state
 - Persist operation plans before their documents and write the completion log last. Validate plan, log, and document agreement before reporting completion. Matching task-key/payload retries resume; incompatible payloads must fail explicitly.
 - Reconstruct operations on fresh server instances. A `pending` response requires a later resume call; work does not continue in the background. Never promise atomic multi-file writes or exactly-once concurrent saves.
 - Preserve project/global boundaries and distinguish captures, compiled wiki knowledge, and task logs. Query wiki knowledge together with fresh captures; daily maintenance must not gate new information. Cross-project searches, log searches, and complex synthesis must be explicit. Fail honestly when pagination or verification is incomplete.
+- Keep non-current assertions separately typed in query evidence. Set `include_history=true` only for an explicit history question; it adds superseded formerly-current assertions without making them current. Exact read `status=saved` means verified file availability and `currentness=not_evaluated`, not a freshness judgment.
 - Daily wiki maintenance is an explicitly invoked external caller, not a persistent Worker job. Process bounded batches, persist resumable plans, retain source coverage, and audit without changing records. Keep normal task completions in their originating chat; do not enqueue a memory worker for every task.
 
 ## Security and memory cutover
