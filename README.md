@@ -1,5 +1,7 @@
 # Agent Memory MCP
 
+> **Codex client cutover (2026-11-08):** ordinary task/time logs now use Notion Personal, with no automatic project/global knowledge capture or wiki retrieval. See [current client instructions](docs/client-instructions.md) and [ADR 0004](docs/adr/0004-notion-time-logs.md). The existing memory service and records remain intact; the runtime documentation below describes that service, not an instruction to invoke it.
+
 Private, stateless memory tools for ChatGPT and Codex. All durable application data lives in **OpenAI Files and Vector Stores** in the existing **Personal / Agent Memory** OpenAI project. Sol extracts new-input captures and maintains a compiled wiki; Luna answers routine questions from wiki pages plus fresh captures. Sites runs the dependency-free JavaScript Worker on Cloudflare. There is no D1, R2, separate catalogue, local database, Python runtime, or persistent background job.
 
 ## Run and check
@@ -55,15 +57,9 @@ Create `global` and each application's project before use. These are application
 
 ### When clients call tools
 
-Reuse known project keys and relevant memory within a chat. List projects only
-when the key is unknown or invalid; query project plus global knowledge only
-when missing or potentially stale prior context matters. Simple follow-ups and
-self-contained tasks skip retrieval. Continue independent work on retrieval
-failure. Submit one completion log per finished task, not per prompt. After
-pending on an ordinary completion, attempt one resume, then report the operation ID and defer further
-attempts until needed or requested. Explicit maintenance jobs instead repeat their stable job key across advancing bounded batches; indexing/no-progress stalls receive one resume before deferral. Nothing runs in the background. Individual
-tool calls still wait for their results; save verification remains strict. Sol requests use streaming with a bounded three-minute timeout for extraction and synthesis; only the terminal response is accepted, never partial output. Routine Luna requests and storage calls retain a 45-second timeout. A timeout does not confirm a saved operation or start background recovery.
-See [client-instructions.md](docs/client-instructions.md) for the full policy.
+Codex's active client policy is [Notion time logs](docs/client-instructions.md). Do not automatically invoke the memory tools below for ordinary work. Their service contract remains available for explicit requests to inspect or maintain this product. Earlier retrieval/capture policies are historical; ChatGPT account instructions and external schedules require separate verification.
+
+Service calls still wait for their results. Sol requests use streaming with a bounded three-minute timeout for extraction and synthesis; only the terminal response is accepted, never partial output. Routine Luna requests and storage calls retain a 45-second timeout. A timeout does not confirm a saved operation or start background recovery.
 
 ### Example completion
 

@@ -1,5 +1,7 @@
 # Capture first and maintain a wiki daily
 
+> The automatic Codex client workflow in this decision is superseded by [ADR 0004](0004-notion-time-logs.md). Server architecture/history requirements remain in force.
+
 Accepted on 2026-11-08. Supersedes the prohibition on timestamp-based precedence in ADR 0001 and its requirement to turn every unexplained changed fact into a conflict; the OpenAI-only storage and recovery decisions remain in force. The user wants fast task completion without prior-memory deduplication or contradiction scans, while retaining the [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) pattern of accumulated, maintained knowledge.
 
 Completion uses Sol to extract assertions from the new curated input only, then commits immutable captures and the task log with operation-local integrity checks. Reads combine persisted wiki pages with fresh captures and select the newest recorded current assertion of the same scoped fact. Plans, historical claims, and uncertain statements do not supersede established current state; uncertain identity or ordering remains visible. Retries, wiki generation, and hosted legacy migration preserve the assertion's original recorded time.

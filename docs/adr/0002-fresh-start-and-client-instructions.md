@@ -1,5 +1,7 @@
 # Start fresh and use instructions instead of local memory scripts
 
+> The automatic Codex client workflow in this decision is superseded by [ADR 0004](0004-notion-time-logs.md). Server architecture/history requirements remain in force.
+
 [ADR 0003](0003-capture-first-and-daily-wiki-maintenance.md) adds an explicitly scheduled daily wiki-maintenance caller and replaces the earlier contradiction-precedence policy. Ordinary completed-task capture stays in the originating chat; the daily caller is not a per-task completion worker.
 
 Begin with empty hosted collections. Do not import or continuously synchronize the old vault. Clients retrieve when missing or potentially stale prior context matters and submit one curated summary per genuinely completed task through MCP. The conditional call policy below supersedes the original unconditional retrieval rule. No Python hooks, completion writers, qmd installation, or local embedding models are needed by the new service.

@@ -32,3 +32,11 @@ _Avoid_: Raw transcript, task log
 **Maintenance job**: The compilation of one project's frozen source scope, completed through one or more bounded batches under the same task key.
 
 **Operation**: A persisted unit of save or maintenance work, recoverable across retries.
+
+## Client workflow cutover
+
+As of 2026-11-08, Codex records completed-work time logs in Notion Personal and reads project source/docs directly. No automatic knowledge capture, project/global memory retrieval, or wiki maintenance is part of that client workflow. The glossary above describes the preserved memory service. See ADR 0004.
+
+**Time log**: A Notion row for one logged work segment, with its work date, Project label, duration provenance, references, and retry Entry ID. This is distinct from the memory service's existing Task log.
+
+**Log Project**: A reporting label reused across related Repository URLs. It is not a memory collection or an OpenAI API project.

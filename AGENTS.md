@@ -2,9 +2,13 @@
 
 ## Project context
 
-Read `README.md`, `CONTEXT.md`, and relevant decisions in `docs/adr/` before changing behavior. Keep the glossary and decisions current when architecture or domain language changes. `docs/client-instructions.md` describes the proposed client memory workflow and its cutover requirements.
+Read `README.md`, `CONTEXT.md`, and relevant decisions in `docs/adr/` before changing behavior. Keep the glossary and decisions current when architecture or domain language changes. `docs/client-instructions.md` describes the current Notion time-log workflow and its cutover requirements.
 
 This project provides private memory tools for ChatGPT and Codex through a stateless MCP Worker hosted on Sites. Use the existing **Personal / Agent Memory** OpenAI API project; application project keys identify memory collections, not OpenAI API projects.
+
+## Client time logging
+
+For ordinary work, use the personal Notion Time Logs policy in `docs/client-instructions.md`. Log completed work to Notion Personal only. Do not automatically call this repository's memory tools, daily maintenance skill, retired hooks, or local vault workflow for client context or task completion. Read current source, config, tests, and repository docs for project facts. The service architecture below applies when explicitly maintaining the existing memory product; it does not enable its client workflow. Existing hosted and archived data are preserved.
 
 ## Architecture and correctness
 
